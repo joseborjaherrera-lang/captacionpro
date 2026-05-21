@@ -519,6 +519,7 @@ let _pipeId=null,_llamadaId=null,_discId=null,_editId=null;
 let fOrigen='todos',fCom='todos',search='';
 let _saveTimer=null;
 let _saveTimerComp=null;
+let _saveTimerComp=null;
 
 function save(){
   localStorage.setItem('cp_clientes',JSON.stringify(clientes));
@@ -533,27 +534,27 @@ async function syncToCloud(){
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
     try{
-      const {error}=await _sb.from('datos_crm').upsert({
-        identificac:1,
-        datos:JSON.stringify({clientes,comerciales,nextId,compradores,nextIdComp}),
-        actualizado_en:new Date().toISOString()
-      },{onConflict:'identificac'});
+      const {error}=await _sb.from('crm_datos').upsert({
+        id:1,
+        data:JSON.stringify({clientes,comerciales,nextId,compradores,nextIdComp}),
+        updated_at:new Date().toISOString()
+      },{onConflict:'id'});
       if(error) throw error;
       showSyncToast('☁️ Guardado');
-    }catch(e){console.error('sync error',e);showSyncToast('⚠️ '+(e.message||e.code||'Error'));}
+    }catch(e){console.error('sync error',e);showSyncToast('⚠️ Error al guardar');}
   },800);
 }
 
 async function loadFromCloud(){
   if(!currentUser)return;
   try{
-    const {data,error}=await _sb.from('datos_crm').select('datos').eq('identificac',1).single();
+    const {data,error}=await _sb.from('crm_datos').select('data').eq('id',1).single();
     if(error&&error.code==='PGRST116'){
-      await _sb.from('datos_crm').insert({identificac:1,datos:'{}',actualizado_en:new Date().toISOString()});
+      await _sb.from('crm_datos').insert({id:1,data:'{}',updated_at:new Date().toISOString()});
       return;
     }
-    if(data&&data.datos&&data.datos!=='{}'){
-      const d=JSON.parse(data.datos);
+    if(data&&data.data&&data.data!=='{}'){
+      const d=JSON.parse(data.data);
       if(d.clientes)clientes=d.clientes;
       if(d.comerciales)comerciales=d.comerciales;
       if(d.nextId)nextId=d.nextId;
@@ -572,7 +573,7 @@ function showSyncToast(msg){
   let t=document.getElementById('sync-toast');
   if(!t)return;
   t.textContent=msg;t.style.display='block';
-  setTimeout(()=>t.style.display='none',5000);
+  setTimeout(()=>t.style.display='none',2000);
 }
 
 // ── UTILS ─────────────────────────────────────────────
@@ -1153,14 +1154,14 @@ async function syncCompToCloud() {
   clearTimeout(_saveTimerComp); // timer propio, no interfiere con vendedores
   _saveTimerComp = setTimeout(async () => {
     try {
-      const {error}=await _sb.from('datos_crm').upsert({
-        identificac: 1,
-        datos: JSON.stringify({ clientes, comerciales, nextId, compradores, nextIdComp }),
-        actualizado_en: new Date().toISOString()
-      },{onConflict:'identificac'});
+      const {error}=await _sb.from('crm_datos').upsert({
+        id: 1,
+        data: JSON.stringify({ clientes, comerciales, nextId, compradores, nextIdComp }),
+        updated_at: new Date().toISOString()
+      },{onConflict:'id'});
       if(error) throw error;
       showSyncToast('☁️ Guardado');
-    } catch(e) { console.error('sync error', e); showSyncToast('⚠️ '+(e.message||e.code||'Error')); }
+    } catch(e) { console.error('sync error', e); showSyncToast('⚠️ Error al guardar'); }
   }, 800);
 }
 
