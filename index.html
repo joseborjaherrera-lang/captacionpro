@@ -534,10 +534,10 @@ async function syncToCloud(){
   _saveTimer=setTimeout(async()=>{
     try{
       const {error}=await _sb.from('datos_crm').upsert({
-        id:1,
+        identificac:1,
         datos:JSON.stringify({clientes,comerciales,nextId,compradores,nextIdComp}),
         actualizado_en:new Date().toISOString()
-      },{onConflict:'id'});
+      },{onConflict:'identificac'});
       if(error) throw error;
       showSyncToast('☁️ Guardado');
     }catch(e){console.error('sync error',e);showSyncToast('⚠️ '+(e.message||e.code||'Error'));}
@@ -547,9 +547,9 @@ async function syncToCloud(){
 async function loadFromCloud(){
   if(!currentUser)return;
   try{
-    const {data,error}=await _sb.from('datos_crm').select('datos').eq('id',1).single();
+    const {data,error}=await _sb.from('datos_crm').select('datos').eq('identificac',1).single();
     if(error&&error.code==='PGRST116'){
-      await _sb.from('datos_crm').insert({id:1,datos:'{}',actualizado_en:new Date().toISOString()});
+      await _sb.from('datos_crm').insert({identificac:1,datos:'{}',actualizado_en:new Date().toISOString()});
       return;
     }
     if(data&&data.datos&&data.datos!=='{}'){
@@ -1154,10 +1154,10 @@ async function syncCompToCloud() {
   _saveTimerComp = setTimeout(async () => {
     try {
       const {error}=await _sb.from('datos_crm').upsert({
-        id: 1,
+        identificac: 1,
         datos: JSON.stringify({ clientes, comerciales, nextId, compradores, nextIdComp }),
         actualizado_en: new Date().toISOString()
-      },{onConflict:'id'});
+      },{onConflict:'identificac'});
       if(error) throw error;
       showSyncToast('☁️ Guardado');
     } catch(e) { console.error('sync error', e); showSyncToast('⚠️ '+(e.message||e.code||'Error')); }
