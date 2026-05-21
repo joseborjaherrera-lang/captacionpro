@@ -679,24 +679,86 @@ function renderVendedores(c){
 }
 
 // ── AGENDA ────────────────────────────────────────────
+let fAgendaCom=null; // null = comercial activo, 'todos' = todos
+
+function getInicioSemana(fecha){
+  const d=new Date(fecha+'T12:00:00');
+  const dia=d.getDay(); // 0=dom,1=lun...
+  const diff=dia===0?-6:1-dia; // ajustar a lunes
+  d.setDate(d.getDate()+diff);
+  return d.toISOString().slice(0,10);
+}
+function getLabelSemana(inicioStr){
+  const ini=new Date(inicioStr+'T12:00:00');
+  const fin=new Date(ini);fin.setDate(fin.getDate()+6);
+  const opts={day:'2-digit',month:'short'};
+  return`Semana del ${ini.toLocaleDateString('es-ES',opts)} al ${fin.toLocaleDateString('es-ES',opts)}`;
+}
+
 function renderAgenda(c){
-  const h=hoy(),act=clientes.filter(x=>!x.descartado);
+  // Por defecto muestra solo el comercial activo
+  if(fAgendaCom===null) fAgendaCom=comercialActivo;
+
+  const h=hoy();
+  let act=clientes.filter(x=>!x.descartado);
+  // Aplicar filtro de comercial
+  if(fAgendaCom!=='todos') act=act.filter(x=>x.comercial===fAgendaCom);
+
   const venc=act.filter(x=>x.proxima&&x.proxima<h).sort((a,b)=>a.proxima.localeCompare(b.proxima));
   const deHoy=act.filter(x=>x.proxima===h);
   const semana=act.filter(x=>enSemana(x.proxima)&&x.proxima!==h);
-  c.innerHTML=`
-    <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.25rem;">📅 Agenda</div>
+
+  // Próximas semanas: todo lo que va más allá de esta semana, agrupado por semana
+  const finEstaSemana=addD(7);
+  const proximas=act.filter(x=>x.proxima&&x.proxima>finEstaSemana)
+    .sort((a,b)=>a.proxima.localeCompare(b.proxima));
+
+  // Agrupar por semana
+  const semanas={};
+  proximas.forEach(cl=>{
+    const ini=getInicioSemana(cl.proxima);
+    if(!semanas[ini]) semanas[ini]=[];
+    semanas[ini].push(cl);
+  });
+  const semanasKeys=Object.keys(semanas).sort();
+
+  const opcionesCom=`
+    <option value="todos" ${fAgendaCom==='todos'?'selected':''}>👥 Todos los comerciales</option>
+    ${comerciales.map(co=>`<option value="${co}" ${fAgendaCom===co?'selected':''}>${co}</option>`).join('')}
+  `;
+
+  let html=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem;">
+      <div style="font-size:1.1rem;font-weight:800;">📅 Agenda</div>
+      <select onchange="fAgendaCom=this.value;navigate('agenda')" style="font-size:0.78rem;padding:0.3rem 0.6rem;border-radius:8px;border:1px solid var(--borde);background:var(--superficie2);color:var(--texto);max-width:160px;">${opcionesCom}</select>
+    </div>
     <div style="font-size:0.8rem;color:var(--text2);margin-bottom:1.2rem;">${new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
     <div class="stats-grid" style="">
       <div class="stat-box highlight"><div class="stat-box-val" style="color:#dc2626">${venc.length}</div><div class="stat-box-label">Vencidas</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:#d97706">${deHoy.length}</div><div class="stat-box-label">Hoy</div></div>
       <div class="stat-box"><div class="stat-box-val" style="color:#2563eb">${semana.length}</div><div class="stat-box-label">Esta semana</div></div>
+      <div class="stat-box"><div class="stat-box-val" style="color:var(--acento)">${proximas.length}</div><div class="stat-box-label">Próximas</div></div>
     </div>
     ${venc.length?`<div style="font-size:0.72rem;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.5rem;">⚠️ Vencidas</div>${venc.map(cl=>agRow(cl,'red')).join('')}`:''}
     ${deHoy.length?`<div style="font-size:0.72rem;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.5rem;">📅 Hoy</div>${deHoy.map(cl=>agRow(cl,'')).join('')}`:''}
     ${semana.length?`<div style="font-size:0.72rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.5rem;">📆 Esta semana</div>${semana.map(cl=>agRow(cl,'green')).join('')}`:''}
-    ${!venc.length&&!deHoy.length&&!semana.length?`<div class="empty"><div class="empty-icon">✅</div><p>¡Todo al día! Sin llamadas pendientes.</p></div>`:''}
   `;
+
+  // Próximas semanas agrupadas
+  if(semanasKeys.length){
+    semanasKeys.forEach(ini=>{
+      const label=getLabelSemana(ini);
+      const lista=semanas[ini];
+      html+=`<div style="font-size:0.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin:0.8rem 0 0.5rem;">📋 ${label}</div>`;
+      html+=lista.map(cl=>agRow(cl,'')).join('');
+    });
+  }
+
+  if(!venc.length&&!deHoy.length&&!semana.length&&!proximas.length){
+    html+=`<div class="empty"><div class="empty-icon">✅</div><p>¡Todo al día! Sin llamadas pendientes.</p></div>`;
+  }
+
+  c.innerHTML=html;
 }
 function agRow(cl,color){
   return`<div class="table-wrap" style="margin-bottom:0.5rem;cursor:pointer;" onclick="abrirFicha(${cl.id})">
@@ -1061,7 +1123,7 @@ function renderListaComs(){
       <button onclick="delCom(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;padding:0.1rem 0.3rem;">✕</button>
     </div>`).join('')||'<p style="color:var(--text3);text-align:center;padding:1rem;">Sin comerciales</p>';
 }
-function selCom(nombre){comercialActivo=nombre;save();renderListaComs();document.getElementById('active-name').textContent=nombre;}
+function selCom(nombre){comercialActivo=nombre;fAgendaCom=nombre;save();renderListaComs();document.getElementById('active-name').textContent=nombre;}
 function addCom(){const n=document.getElementById('nuevo-com').value.trim();if(!n||comerciales.includes(n))return;comerciales.push(n);if(!comercialActivo)comercialActivo=n;save();document.getElementById('nuevo-com').value='';renderListaComs();document.getElementById('active-name').textContent=comercialActivo;}
 function delCom(i){if(!confirm('¿Borrar?'))return;comerciales.splice(i,1);if(!comerciales.includes(comercialActivo))comercialActivo=comerciales[0]||'';save();renderListaComs();}
 
